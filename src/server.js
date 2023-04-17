@@ -1,6 +1,7 @@
 //Importaciones
 import express from "express";
 import usersRoute from "./routes/users.routes.js";
+import cors from "cors";
 //import indexRoute from "./routes/index.routes.js";
 
 //Iniciamos la app
@@ -10,12 +11,9 @@ const app = express();
 app.use(express.json());
 
 //Middleware que permite acceso seguro desde un dominio distinto a la API
-app.use((req, res, next) => {
-    res.setHeader('Acces-Control-Allow-Origin', '*');
-    res.setHeader('Acces-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    res.setHeader('Acces-Control-Allow-Headers', 'Content-Type, Autorization');
-    next();
-})
+app.use(cors({
+    origin: 'http://localhost:4200'
+  }));
 //Iniciamos las rutas
 app.use(usersRoute);
 //app.use(indexRoute);
