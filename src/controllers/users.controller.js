@@ -3,19 +3,20 @@ import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken';
 
 export const getUser = async (req, res) => {
-  const username = req.params.UserName;
+
 
   try {
-    const [rows] = await pool.query("SELECT * FROM USERS WHERE Username = ?", [
+    const authHeader = req.headers.authorization;
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, 'mysecretkey');
+    const username = decodedToken.username;
+    const [rows] = await pool.query("SELECT name FROM USERS WHERE Username = ?", [
       username,
     ]);
-    console.log(rows);
-    if (rows.length <= 0)
-      return res.status(404).json({
-        message: "El usuario no existe",
-      });
+    console.log(rows[0].name);
 
-    res.json(rows[0]);
+    res.json({user: rows[0].name});
+
   } catch (error) {
     console.log(error);
     return res
@@ -82,7 +83,14 @@ export const updateUser = async (req, res) => {
 };
 
 export const deleteUser = async (req, res) => {
-  const username = req.params.UserName;
+
+  try{
+    const authHeader = req.headers.authorization;
+  const token = authHeader.split(' ')[1];
+  const decodedToken = jwt.verify(token, 'mysecretkey');
+  const username = decodedToken.username;
+
+
   const [rows] = await pool.query("DELETE FROM USERS WHERE UserName = ?", [
     username,
   ]);
@@ -90,7 +98,10 @@ export const deleteUser = async (req, res) => {
   if (rows.affectedRows <= 0)
     return res.status(404).json({ Message: "Usuario no eliminado" });
 
-  res.sendStatus(204);
+  res.json({Message: 'Usuario borrado'});
+  } catch{
+    res.status(500).json({ Message: "Error interno" }); 
+  }
 };
 
 //Función para iniciar sesión
@@ -182,5 +193,27 @@ export const resetPassword = async(req, res) => {
     console.log(error)
     res.status(500).json({ Message: "Error interno" });
 
+  }
+}
+
+export const updateConsumption = async(req, res) => {
+  const house = req.body.House;
+
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, 'mysecretkey');
+    const username = decodedToken.username;
+    await pool.query("UPDATE USERS SET House = ? WHERE Username = ?", [
+      house, username
+    ]);
+
+    res.json({Message: "Consumo cambiado correctamente"});
+
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ Message: "Error interno, inténtelo nuevamente más tarde" });
   }
 }

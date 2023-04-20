@@ -19,4 +19,4 @@ app.use(usersRoute);
 //app.use(indexRoute);
 
 //Node estará escuchando peticiones desde el puerto especificado
-app.listen(3001);
+app.listen(3000);
