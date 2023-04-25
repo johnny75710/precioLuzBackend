@@ -1,10 +1,13 @@
 //Importaciones
 import express from "express";
 import cron from 'node-cron'
+import https from 'https';
+
 import usersRoute from "./routes/users.routes.js";
 import consumptionRoute from "./routes/consumption.routes.js"
-import {savePrices} from "./controllers/price.controller.js";
+import PriceController from "./controllers/price.controller.js";
 
+const url = "https://api.esios.ree.es/archives/70/download_json?locale=es";
 import cors from "cors";
 //import indexRoute from "./routes/index.routes.js";
 
@@ -26,6 +29,7 @@ app.use(consumptionRoute)
 //Node estará escuchando peticiones desde el puerto especificado
 app.listen(3000);
 
-cron.schedule('1 0 * * *', savePrices);
-savePrices();
+const priceController = new PriceController();
+cron.schedule('1 0 * * *', () => priceController.savePrices());
+priceController.savePrices();
 
