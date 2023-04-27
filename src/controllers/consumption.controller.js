@@ -1,11 +1,16 @@
 import { pool } from "../connection.js";
 
-
 class Consumption {
+  #pool;
+
+  constructor() {
+    this.#pool = pool;
+  }
+
   async getConsumption(req, res) {
     const date = req.body.date;
     try {
-      const [rows] = await pool.query("SELECT Hour, Price, isMIN, isMAX FROM PRICES WHERE Date = ?", [date]);
+      const [rows] = await this.#pool.query("SELECT Hour, Price, isMIN, isMAX FROM PRICES WHERE Date = ?", [date]);
       if (rows.length == 0) {
         return res.status(404).json({ Message: "Date Not Found" });
       } else {
@@ -21,7 +26,7 @@ class Consumption {
   async getLoggedConsumption(req, res) {
     const user = req.params.user;
     try {
-      const [rows] = await pool.query(
+      const [rows] = await this.#pool.query(
         "SELECT WATS FROM HOUSE WHERE ID = (SELECT HOUSE FROM USERS WHERE Username = ?);",
         [user]
       );
@@ -41,4 +46,3 @@ class Consumption {
 }
 
 export default Consumption;
-
