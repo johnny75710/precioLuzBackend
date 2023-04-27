@@ -1,18 +1,16 @@
 import { pool } from "../connection.js";
 import https from "https";
+import { Prices } from "../classes/prices.class.js";
+
 
 class PriceController {
-  #url;
-  #pool;
-
   constructor() {
-    this.#url = "https://api.esios.ree.es/archives/70/download_json?locale=es";
-    this.#pool = pool
+    this.url = "https://api.esios.ree.es/archives/70/download_json?locale=es";
   }
 
   async getPrices() {
     return new Promise((resolve, reject) => {
-      const req = https.get(this.#url, (res) => {
+      const req = https.get(this.url, (res) => {
         let data = "";
         res.on("data", (chunk) => {
           data += chunk;
@@ -33,20 +31,14 @@ class PriceController {
   }
 
   async savePrices() {
-    const today = new Date();
-
-    const day = String(today.getDate()).padStart(2, "0");
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const year = today.getFullYear();
-
-    const formattedDate = `${day}/${month}/${year}`;
-
     try {
+      const price = new Prices();
+
       const jsonData = await this.getPrices();
 
-      const row = await this.#pool.query(
+      const row = await pool.query(
         "SELECT EXISTS(SELECT Date FROM PRICES WHERE DATE = ?)",
-        [formattedDate]
+        [jsonData.PVPC[0].Dia]
       );
 
       if (Object.values(row[0][0])[0] == 0) {
@@ -60,23 +52,28 @@ class PriceController {
         const maxPrice = Math.max(...prices);
 
         for (let i = 0; i < prices.length; i++) {
-          let isMin = "";
+  
           if (prices[i] == minPrice) {
-            isMin = "YES";
+            price.isMin = "YES";
           } else {
-            isMin = "NO";
+            price.isMin = "NO";
           }
 
-          let isMax = "";
           if (prices[i] == maxPrice) {
-            isMax = "YES";
+            price.isMax = "YES";
           } else {
-            isMax = "NO";
+            price.isMax = "NO";
           }
 
-          await this.#pool.query(
+          await pool.query(
             "INSERT INTO PRICES (Date, Hour, Price, isMIN, isMAX) VALUES ( ?, ?, ?, ?, ?)",
-            [formattedDate, jsonData.PVPC[i].Hora, prices[i], isMin, isMax]
+            [
+              jsonData.PVPC[i].Dia,
+              jsonData.PVPC[i].Hora,
+              prices[i],
+              price.isMin,
+              price.isMax
+            ]
           );
         }
       }

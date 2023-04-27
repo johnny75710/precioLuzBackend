@@ -2,6 +2,9 @@ import { pool } from "../connection.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+import { User } from "../classes/user.class.js";
+
+
 
 export class UserController {
 
@@ -11,14 +14,16 @@ export class UserController {
       const authHeader = req.headers.authorization;
       const token = authHeader.split(" ")[1];
       const decodedToken = jwt.verify(token, "mysecretkey");
-      const username = decodedToken.username;
+      const user = new User();
+      user.userName = decodedToken.username;
+      console.log(user.userName)
       const [rows] = await pool.query(
-        "SELECT name FROM USERS WHERE Username = ?",
-        [username]
+        "SELECT username FROM USERS WHERE Username = ?",
+        [user.userName]
       );
-      console.log(rows[0].name);
   
-      res.json({ user: rows[0].name });
+      console.log(rows)
+      res.json({ user: rows[0].username });
     } catch (error) {
       console.log(error);
       return res
@@ -29,21 +34,27 @@ export class UserController {
   
   //Función para crear el usuario
   async createUser(req, res){
-    const { Name, UserName, Password, Security_Q, Security_A, House } = req.body;
+    const user = new User(req.body.Name, req.body.UserName, req.body.Password, req.body.Security_Q, req.body.Security_A, req.body.House);
+    user.name = req.body.Name;
+    user.userName =  req.body.UserName
+    user.password = req.body.Password;
+    user.security_Q.id = req.body.Security_Q;
+    user.security_A = req.body.Security_A;
+    user.house.id = req.body.House;
   
     //Con la librería bcrypt, encriptamos la contraseña para mayor seguridad.
-    const hashedPwd = await bcrypt.hash(Password, 12);
+    const hashedPwd = await bcrypt.hash(user.password, 12);
   
     //Metemos el código referente a la/s consulta/s en un try/catch, de esta manera si hay un error, el servidor seguirá funcionando
     try {
       //Consulta para saber si existe el usuario
-      const user = await pool.query(
+      const userr = await pool.query(
         "SELECT UserName FROM USERS WHERE UserName = ?",
-        [UserName]
+        [user.userName]
       );
   
       //Si el nombre de usuario ya existe, devolvemos un error
-      if (Object.keys(user[0]).length > 0) {
+      if (Object.keys(userr[0]).length > 0) {
         return res
           .status(404)
           .json({
@@ -54,7 +65,7 @@ export class UserController {
         //Si el nombre de usuario está disponible, creamos el usuario
         const row = await pool.query(
           "INSERT INTO USERS (`Name`, `UserName`, `Password`, `Security_Q`, `Security_A`, `House`) VALUES (?, ?, ?, ?, ?, ?)",
-          [Name, UserName, hashedPwd, Security_Q, Security_A, House]
+          [user.name, user.userName, hashedPwd, user.security_Q.id, user.security_A, user.house.ID]
         );
   
         res.send({
@@ -63,6 +74,7 @@ export class UserController {
         });
       }
     } catch (error) {
+      console.log(error)
       //Si ha habido algún error, en el proceso, devolvemos un mensaje de error
       return res
         .status(500)
@@ -70,30 +82,18 @@ export class UserController {
     }
   };
   
-  async updateUser(req, res){
-    const username = req.params.UserName;
-    const house = req.body.House;
-  
-    const [rows] = await pool.query(
-      "UPDATE USERS SET House = ? WHERE UserName = ?",
-      [house, username]
-    );
-  
-    if (rows.affectedRows === 0)
-      return res.status(404).json({ Message: "No hay cambios" });
-  
-    res.sendStatus(204);
-  };
   
   async deleteUser(req, res) {
+    
     try {
+      const user = new User();
       const authHeader = req.headers.authorization;
       const token = authHeader.split(" ")[1];
       const decodedToken = jwt.verify(token, "mysecretkey");
-      const username = decodedToken.username;
+      user.userName = decodedToken.username;
   
       const [rows] = await pool.query("DELETE FROM USERS WHERE UserName = ?", [
-        username,
+        user.userName,
       ]);
   
       if (rows.affectedRows <= 0)
@@ -107,37 +107,40 @@ export class UserController {
   
   //Función para iniciar sesión
   async loginUser(req, res){
-    const username = req.body.UserName;
-    const passowrd = req.body.Password;
+    const user = new User();
+    user.userName = req.body.UserName;
+    user.password = req.body.Password;
+    
   
     //Metemos el código referente a la/s consulta/s en un try/catch, de esta manera si hay un error, el servidor seguirá funcionando
     try {
       //Primero comprobamos que el usuario existe
       const [name] = await pool.query(
         "SELECT UserName FROM USERS WHERE UserName = ?",
-        [username]
+        [user.userName]
       );
   
       if (name.length > 0) {
         const [result] = await pool.query(
           "SELECT Password FROM USERS WHERE UserName = ?",
-          [username]
+          [user.userName]
         );
   
         //Comprobamos que la contraseña esté correcta
-        const isEqual = await bcrypt.compare(passowrd, result[0].Password);
+        const isEqual = await bcrypt.compare(user.password, result[0].Password);
   
         if (isEqual) {
           const [house] = await pool.query(
             "SELECT HOUSE FROM USERS WHERE UserName = ?",
-            [username]
+            [user.userName]
           );
-          const token = jwt.sign({ username: username }, "mysecretkey");
+          const token = jwt.sign({ username: user.userName }, "mysecretkey");
           return res.json({
             token: token,
-            username: username,
+            username: user.userName,
             house: house[0].HOUSE,
           });
+          
         } else {
           return res.status(404).json({ Message: "Contraseña incorrecta" });
         }
@@ -152,37 +155,39 @@ export class UserController {
   };
   
   async resetPassword(req, res){
-    const username = req.body.UserName;
-    const password = req.body.Password;
-    const security_q = req.body.Security_Q;
-    const security_a = req.body.Security_A;
-  
+
+    const user = new User();
+    user.userName = req.body.UserName;
+    user.password = req.body.Password;
+    user.security_Q.id = req.body.Security_Q;
+    user.security_A = req.body.Security_A;
+
     //Encriptamos la nueva contraseña elegida por el usuario
-    const hashedPwd = await bcrypt.hash(password, 12);
+    const hashedPwd = await bcrypt.hash(user.password, 12);
   
     //Metemos el código referente a la/s consulta/s en un try/catch, de esta manera si hay un error, el servidor seguirá funcionando
     try {
       //Compprobamos que el usuario al que se le quiere cambiar la contraseña existe realmente
       const [name] = await pool.query(
         "SELECT UserName FROM USERS WHERE UserName = ?",
-        [username]
+        [user.userName]
       );
   
       if (name.length > 0) {
         const [question] = await pool.query(
           "SELECT SECURITY_Q, SECURITY_A FROM USERS WHERE UserName = ?",
-          [username]
+          [user.userName]
         );
   
         //Comprobamos si la pregunta de seguridad y la respuesta elegida por el usuario coincide con la que hay en la base de datos para dicho usuario, procedemos con el restablecimiento
         //de la contraseña
         if (
-          security_q == question[0].SECURITY_Q &&
-          security_a == question[0].SECURITY_A
+          user.security_Q.ID == question[0].SECURITY_Q &&
+          user.security_A == question[0].SECURITY_A
         ) {
           await pool.query("UPDATE USERS SET PASSWORD = ? WHERE UserName = ?", [
             hashedPwd,
-            username,
+            user.userName,
           ]);
           return res.send({ Message: "Correct!" });
         } else {
@@ -204,16 +209,17 @@ export class UserController {
   };
   
   async updateConsumption(req, res){
-    const house = req.body.House;
   
     try {
+      const user = new User();
+      user.house.ID = req.body.House;
       const authHeader = req.headers.authorization;
       const token = authHeader.split(" ")[1];
       const decodedToken = jwt.verify(token, "mysecretkey");
-      const username = decodedToken.username;
+      user.userName = decodedToken.username;
       await pool.query("UPDATE USERS SET House = ? WHERE Username = ?", [
-        house,
-        username,
+        user.house.ID,
+        user.userName,
       ]);
   
       res.json({ Message: "Consumo cambiado correctamente" });
