@@ -1,15 +1,10 @@
 //Importaciones
 import express from "express";
 import cron from 'node-cron'
-import https from 'https';
-
+import cors from "cors";
 import usersRoute from "./routes/users.routes.js";
 import consumptionRoute from "./routes/consumption.routes.js"
 import PriceController from "./controllers/price.controller.js";
-
-const url = "https://api.esios.ree.es/archives/70/download_json?locale=es";
-import cors from "cors";
-//import indexRoute from "./routes/index.routes.js";
 
 //Iniciamos la app
 const app = express();

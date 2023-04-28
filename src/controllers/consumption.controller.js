@@ -3,13 +3,17 @@ import { User } from "../classes/user.class.js";
 import { Prices } from "../classes/prices.class.js";
 
 
+//Clase controlador para desplegar los precios en el frontend
+export class ConsumptionController {
 
-class Consumption {
+  //Funcion para obtener los precios de la base de datos
   async getConsumption(req, res) {
     const prices = new Prices();
     prices.date = req.body.date;
     try {
       const [rows] = await pool.query("SELECT Hour, Price, isMIN, isMAX FROM PRICES WHERE Date = ?", [prices.date]);
+
+      //Si no hay precios para la fecha actual, devolvemos un error
       if (rows.length == 0) {
         return res.status(404).json({ Message: "Date Not Found" });
       } else {
@@ -22,6 +26,7 @@ class Consumption {
     }
   }
 
+  //Funcion para obtener el consumo del usuario logueado
   async getLoggedConsumption(req, res) {
     const user = new User();
     user.userName = req.params.user;
@@ -45,4 +50,3 @@ class Consumption {
   }
 }
 
-export default Consumption;
